@@ -18,7 +18,13 @@ function runScript(script: string, environment: NodeJS.ProcessEnv): void {
   if (packageManager === undefined || packageManager === '') {
     throw new Error('build: npm_execpath is unavailable; invoke the build through a package script')
   }
-  const result = spawnSync(process.execPath, [packageManager, 'run', script], {
+  // `npm_execpath` may be a real binary (e.g. `pnpm.exe` on Windows, a
+  // pkg-bundled Node + pnpm) rather than a Node script. Routing it
+  // through `node <packageManager>` makes the ESM loader reject the
+  // unknown `.exe` extension with `ERR_UNKNOWN_FILE_EXTENSION` on
+  // Node 22+. Spawn the package manager directly so the OS resolves
+  // it (PE binary on Windows, shebang on POSIX shims).
+  const result = spawnSync(packageManager, ['run', script], {
     cwd: resolve(import.meta.dirname, '..'),
     env: environment,
     stdio: 'inherit',
